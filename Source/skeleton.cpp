@@ -15,7 +15,8 @@ const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
-
+vector<vec3> stars(1000);
+const float velocity = 0.0001f;
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 
@@ -24,12 +25,12 @@ void Draw();
 void Interpolate(float a, float b, vector<float> &result);
 void Interpolate(vec3 a, vec3 b, vector<vec3> &result);
 
+
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
-
-    vector<vec3> stars(5);
+    
     
     for(int i=0; i < stars.size(); i++) {
         float x = -1 + 2*float(rand()) / float(RAND_MAX);
@@ -37,7 +38,6 @@ int main( int argc, char* argv[] )
         float z = float(rand()) / float(RAND_MAX);
         stars[i] = vec3(x,y,z);
     }
-     
 
 	while( NoQuitMessageSDL() )
 	{
@@ -57,32 +57,32 @@ void Update()
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
+    for(int i=0; i < stars.size(); i++) {
+        stars[i].z -= velocity * dt;
+        if(stars[i].z <= 0)
+            stars[i].z += 1;
+        if(stars[i].z > 1)
+            stars[i].z -= 1;
+    }
 }
 
 void Draw()
 {
+
+    SDL_FillRect(screen, 0, 0);
+
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
-	vec3 top_left(1,0,0);
-    vec3 top_right(0,0,1);
-    vec3 bottom_right(0,1,0);
-    vec3 bottom_left(1,1,0);
+    float f = SCREEN_HEIGHT/2;
+    float g = SCREEN_WIDTH/2;
 
-    vector<vec3> leftSide(SCREEN_HEIGHT);
-    vector<vec3> rightSide(SCREEN_HEIGHT);
-    Interpolate(top_left, bottom_left, leftSide);
-    Interpolate(top_right, bottom_right, rightSide);
-
-	for( int y=0; y<SCREEN_HEIGHT; ++y )
-	{
-        vector<vec3> row(SCREEN_WIDTH);
-        Interpolate(leftSide[y], rightSide[y], row);
-		for( int x=0; x<SCREEN_WIDTH; ++x )
-		{
-			PutPixelSDL( screen, x, y, row[x] );
-		}
-	}
+    for(int i=0; i<stars.size();i++) {
+        float u =  f * stars[i].x/stars[i].z + g;
+        float v = f * stars[i].y/stars[i].z + f;
+        vec3 colour = 0.2f * vec3(1,1,1)/(stars[i].z*stars[i].z);
+        PutPixelSDL( screen, (int) u, (int) v, colour);
+    }
 
 	if( SDL_MUSTLOCK(screen) )
 		SDL_UnlockSurface(screen);

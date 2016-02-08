@@ -9,35 +9,40 @@ using glm::vec3;
 using glm::mat3;
 
 /* ----------------------------------------------------------------------------*/
+/* STRUCTS                                                                     */
+struct Intersection {
+    vec3 position;
+    float distance;
+    int triangleIndex;
+};
+
+/* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
+const int SCREEN_WIDTH = 100;
+const int SCREEN_HEIGHT = 100;
 SDL_Surface* screen;
 int t;
-vector<vec3> stars(1000);
-const float velocity = 0.0001f;
+vector<Triangle> triangles;
+
+float focalLength = 50;
+vec3 cameraPos(0,0,0);
+mat3 R;
+float yaw;
+
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 
 void Update();
 void Draw();
-void Interpolate(float a, float b, vector<float> &result);
-void Interpolate(vec3 a, vec3 b, vector<vec3> &result);
-
+bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles, Intersection &closestIntersection);
 
 int main( int argc, char* argv[] )
 {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
     
-    
-    for(int i=0; i < stars.size(); i++) {
-        float x = -1 + 2*float(rand()) / float(RAND_MAX);
-        float y = -1 + 2*float(rand()) / float(RAND_MAX);
-        float z = float(rand()) / float(RAND_MAX);
-        stars[i] = vec3(x,y,z);
-    }
+    LoadTestModel(triangles);
 
 	while( NoQuitMessageSDL() )
 	{
@@ -57,13 +62,20 @@ void Update()
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
-    for(int i=0; i < stars.size(); i++) {
-        stars[i].z -= velocity * dt;
-        if(stars[i].z <= 0)
-            stars[i].z += 1;
-        if(stars[i].z > 1)
-            stars[i].z -= 1;
-    }
+
+    Uint8* keystate = SDL_GetKeyState(0);
+    if(keystate[SDLK_UP]) {
+        cameraPos.z += 0.02f;
+    } 
+    if(keystate[SDLK_DOWN]) {
+        cameraPos.z -= 0.02f;
+    } 
+    if(keystate[SDLK_LEFT]) {
+        cameraPos.x += 0.02f;
+    } 
+    if(keystate[SDLK_RIGHT]) {
+        cameraPos.x -= 0.02f;
+    } 
 }
 
 void Draw()
@@ -74,14 +86,17 @@ void Draw()
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
-    float f = SCREEN_HEIGHT/2;
-    float g = SCREEN_WIDTH/2;
-
-    for(int i=0; i<stars.size();i++) {
-        float u =  f * stars[i].x/stars[i].z + g;
-        float v = f * stars[i].y/stars[i].z + f;
-        vec3 colour = 0.2f * vec3(1,1,1)/(stars[i].z*stars[i].z);
-        PutPixelSDL( screen, (int) u, (int) v, colour);
+    for(int y = 0; y < SCREEN_HEIGHT; y++) {
+        for(int x = 0; x < SCREEN_WIDTH; x++) {
+            vec3 dir(x-(SCREEN_WIDTH/2), y-(SCREEN_HEIGHT/2),focalLength);
+            Intersection closestIntersection;
+            if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection)) {
+                PutPixelSDL( screen, x, y, triangles[closestIntersection.triangleIndex].color);
+            }
+            else {
+                PutPixelSDL( screen, x, y, vec3(0,0,0));
+            }
+        }
     }
 
 	if( SDL_MUSTLOCK(screen) )
@@ -90,36 +105,32 @@ void Draw()
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
 }
 
-void Interpolate(float a, float b, vector<float> &result) {
-	// return average of a and b if result of size 1
-	if(result.size() == 1) {
-		result[0] = a+(b-a)/2;
-	}
-	// do nothing if result of size 0
-	else if(result.size() == 0) {
-		return;
-	}
-	float step_size = (b-a)/(result.size()-1);
-	//cout << "Hello";
-	for(int i=0; i<result.size(); i++) {
-		result[i] = a+i*step_size;
-	}
+bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles, Intersection &closestIntersection) {
+    bool foundIntersect = false;
+
+    for(int i=0; i < triangles.size(); i++) {
+        Triangle triangle = triangles[i];
+        vec3 v0 = triangle.v0;
+        vec3 v1 = triangle.v1;
+        vec3 v2 = triangle.v2;
+        
+        vec3 e1 = v1-v0;
+        vec3 e2 = v2-v0;
+        vec3 b = start-v0;
+
+        mat3 A(-dir,e1,e2);
+        vec3 x = glm::inverse(A)*b;
+
+        if(0 < x.y && 0 < x.z && (x.y + x.z) < 1 && 0 <= x.x) {
+            float d = glm::distance(x, start);
+            if(!foundIntersect || closestIntersection.distance > d) {
+                closestIntersection.triangleIndex = i;
+                closestIntersection.position = x;
+                closestIntersection.distance = d;
+                foundIntersect = true;
+            }
+        }
+    }
+    return foundIntersect;
 }
 
-void Interpolate(vec3 a, vec3 b, vector<vec3> &result) {
-	// return average of a and b if result of size 1
-    vec3 d = b - a;
-    
-	if(result.size() == 1) {
-		result[0] = vec3(a.x+d.x/2,a.y+d.y/2,a.z+d.z/2);
-	}
-	// do nothing if result of size 0
-	else if(result.size() == 0) {
-		return;
-	}
-	vec3 step_size = d/(float)(result.size()-1);
-
-	for(int i=0; i<result.size(); i++) {
-		result[i] = a+(float)i*step_size;
-	}
-}

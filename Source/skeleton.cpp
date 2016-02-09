@@ -19,21 +19,21 @@ struct Intersection {
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
+const int SCREEN_WIDTH = 100;
+const int SCREEN_HEIGHT = 100;
 SDL_Surface* screen;
 int t;
 vector<Triangle> triangles;
 
 //camera variables
-float focalLength = 250.f;
+float focalLength = 50.f;
 vec3 cameraPos(0.f,0.f,-1.5f);
 float yaw = -M_PI/18.f;
 mat3 R;
 float cameraSpeed = 0.2f;
 
 //light variables
-vec3 lightPos(0, -0.5f, -0.7f);
+vec3 lightPos(0, -0.5, -0.7);
 vec3 lightColour = 14.f * vec3(1,1,1);
 float lightSpeed = 0.2f;
 
@@ -43,10 +43,9 @@ float lightSpeed = 0.2f;
 void Update();
 void Draw();
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles, Intersection &closestIntersection);
-void updateCameraAngle();
+void updateCameraAngle(float angle);
 vec3 DirectLight(const Intersection &i);
-vec3 getTriangleNormal(Triangle triangle);
-float MinorDeterminant(int i, int j, mat3 A);
+//float MinorDeterminant(int i, int j, mat3 A);
 
 int main( int argc, char* argv[] )
 {
@@ -55,16 +54,7 @@ int main( int argc, char* argv[] )
     
     LoadTestModel(triangles);
     //initialize camera angle with default yaw
-    updateCameraAngle();
-
-    //normal function test
-    /*vec3 v0(1,-1,-1);
-    vec3 v1(1,-1,1);
-    vec3 v2(-1,-1,1);
-    Triangle testTri(v0,v1,v2,vec3(  0.75f, 0.75f, 0.75f ));
-    vec3 norm = getTriangleNormal(testTri);
-    cout<< "Result: "<< norm.x <<","<<norm.y<<","<<norm.z<<"\n";
-    return 0; */
+    updateCameraAngle(yaw);
 
 	while( NoQuitMessageSDL() )
 	{
@@ -94,13 +84,11 @@ void Update()
     } 
     if(keystate[SDLK_LEFT]) {
         cameraPos.x -= cameraSpeed;
-        yaw -= M_PI/18.f;
-        updateCameraAngle();
+        updateCameraAngle(-M_PI/18.f);
     } 
     if(keystate[SDLK_RIGHT]) {
         cameraPos.x += cameraSpeed;
-        yaw += M_PI/18.f;
-        updateCameraAngle();
+        updateCameraAngle(M_PI/18.f);
     } 
     if(keystate[SDLK_w]) {
         lightPos.z += lightSpeed;
@@ -122,8 +110,9 @@ void Update()
     }
 }
 
-void updateCameraAngle() {
-    R = mat3(vec3(cos(yaw),0,sin(yaw)),vec3(0,1,0),vec3(-sin(yaw),0,cos(yaw)));
+void updateCameraAngle(float angle) {
+    yaw += angle;
+    R = mat3(vec3(cos(angle),0,sin(angle)),vec3(0,1,0),vec3(-sin(angle),0,cos(angle)));
     cameraPos = R * cameraPos;
 }
 
@@ -156,14 +145,14 @@ void Draw()
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
 }
-
+/*
 float MinorDeterminant(int i, int j, mat3 A) {
     int a1 = i == 0 ? 1 : 0;
     int a2 = i == 2 ? 1 : 2;
     int b1 = j == 0 ? 1 : 0;
     int b2 = j == 2 ? 1 : 2;
     return (A[a1][b1] * A[a2][b2]) - (A[a1][b2] * A[a2][b1]);
-}
+}*/
 
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles, Intersection &closestIntersection) {
     bool foundIntersect = false;
@@ -206,7 +195,6 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
         
         vec3 x = (mat3(row1,row2,row3) * (1.f/det)) * b;*/
 
-
         if(0 < x.y && 0 < x.z && (x.y + x.z) < 1 && 0 <= x.x) {
             if(closestIntersection.distance > x.x) {
                 closestIntersection.triangleIndex = i;
@@ -220,25 +208,11 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
 }
 
 vec3 DirectLight(const Intersection &i) {
-    vec3 tmp = i.position - lightPos;
-    float rsq = glm::dot(tmp, tmp);
-    vec3 B = lightColour * ((float) (1.f/(4.f*M_PI*rsq)));
-    vec3 n = getTriangleNormal(triangles[i.triangleIndex]);
-    vec3 dir = glm::normalize(tmp);
-    vec3 D = B * (max(glm::dot(dir, n), 0.0f));
+    vec3 r = lightPos-i.position;
+    float rsq = glm::dot(r, r);
+    vec3 B = lightColour/(float)(4*M_PI*rsq);
+    vec3 u_n = triangles[i.triangleIndex].normal;
+    vec3 u_r = glm::normalize(r);
+    vec3 D = B * (max(glm::dot(u_r, u_n), 0.0f));
     return D;
 }
-
-vec3 getTriangleNormal(Triangle triangle) {
-    vec3 v0 = triangle.v0;
-    vec3 v1 = triangle.v1;
-    vec3 v2 = triangle.v2;
-    vec3 l1 = v0-v1;
-    vec3 l2 = v1 - v2;
-    vec3 norm = glm::cross(l1, l2);
-    if(glm::length(norm) > 0.f) {
-        norm = glm::normalize(norm);
-    }
-    return norm;
-}
-

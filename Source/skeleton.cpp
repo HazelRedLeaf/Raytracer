@@ -19,14 +19,14 @@ struct Intersection {
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 
-const int SCREEN_WIDTH = 100;
-const int SCREEN_HEIGHT = 100;
+const int SCREEN_WIDTH = 500;
+const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
 vector<Triangle> triangles;
 
 //camera variables
-float focalLength = 50.f;
+float focalLength = 250.f;
 vec3 cameraPos(0.f,0.f,-1.5f);
 float yaw = -M_PI/18.f;
 mat3 R;
@@ -216,10 +216,14 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
 }
 
 vec3 DirectLight(const Intersection &i) {
-    vec3 r = lightPos-i.position;
+    Triangle tri = triangles[i.triangleIndex];
+    vec3 e1 = tri.v1-tri.v0;
+    vec3 e2 = tri.v2-tri.v0;
+    vec3 r = tri.v0 + i.position.y*e1 + i.position.z*e2;
+    r = lightPos - r;
     float rsq = glm::dot(r, r);
     vec3 B = lightColour/((float)(4*M_PI*rsq));
-    vec3 u_n = triangles[i.triangleIndex].normal;
+    vec3 u_n = tri.normal;
     vec3 u_r = glm::normalize(r);
     vec3 D = B * (max(glm::dot(u_r, u_n), 0.0f));
     return D;

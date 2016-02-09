@@ -36,6 +36,7 @@ float cameraSpeed = 0.2f;
 vec3 lightPos(0, -0.5, -0.7);
 vec3 lightColour = 14.f * vec3(1,1,1);
 float lightSpeed = 0.2f;
+vec3 indirectLight = 0.5f*vec3(1,1,1);
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -130,8 +131,15 @@ void Draw()
             Intersection closestIntersection;
             closestIntersection.distance = numeric_limits<float>::max();
             if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection)) {
-                vec3 colour = triangles[closestIntersection.triangleIndex].color * DirectLight(closestIntersection);
+                //Coloured direct and indirect illumination
+                vec3 colour = triangles[closestIntersection.triangleIndex].color * (DirectLight(closestIntersection)+indirectLight);
                 PutPixelSDL( screen, x, y, colour);
+                //Coloured direct illumination
+                //vec3 colour = triangles[closestIntersection.triangleIndex].color * DirectLight(closestIntersection);
+                //PutPixelSDL( screen, x, y, colour);
+                //Greyscale direct illumination
+                //PutPixelSDL( screen, x, y, DirectLight(closestIntersection));
+                //Colour, no light
                 //PutPixelSDL( screen, x, y, triangles[closestIntersection.triangleIndex].color);
             }
             else {
@@ -210,7 +218,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
 vec3 DirectLight(const Intersection &i) {
     vec3 r = lightPos-i.position;
     float rsq = glm::dot(r, r);
-    vec3 B = lightColour/(float)(4*M_PI*rsq);
+    vec3 B = lightColour/((float)(4*M_PI*rsq));
     vec3 u_n = triangles[i.triangleIndex].normal;
     vec3 u_r = glm::normalize(r);
     vec3 D = B * (max(glm::dot(u_r, u_n), 0.0f));

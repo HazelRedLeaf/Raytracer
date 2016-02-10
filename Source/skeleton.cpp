@@ -19,14 +19,14 @@ struct Intersection {
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 
-const int SCREEN_WIDTH = 100;
-const int SCREEN_HEIGHT = 100;
+const int SCREEN_WIDTH = 500;
+const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 int t;
 vector<Triangle> triangles;
 
 //camera variables
-float focalLength = 50.f;
+float focalLength = 300.f;
 vec3 cameraPos(0.2f,0.f,-2.f);
 float yaw = -M_PI/18.f;
 mat3 R;
@@ -57,28 +57,6 @@ int main(int argc, char* argv[]) {
     LoadTestModel(triangles);
     
     updateCameraAngle(yaw); //initialize camera angle with default yaw
-
-///////// TO DELETE //////////////////////////////////////////////////////////////
-    // vec3 column1(0.0, -2.0, 4.0);
-    // vec3 column2(1.0, 3.0, 0.0);
-    // vec3 column3(2.0, -1.0, 1.0);
-
-    // mat3 testMatrix(column1, column2, column3);
-
-    // float minor = MinorDeterminant(0,0,testMatrix);
-    // cout << minor << endl;
-    // minor = MinorDeterminant(1,0,testMatrix);
-    // cout << minor << endl;
-    // minor = MinorDeterminant(2,0,testMatrix);
-    // cout << minor << endl;
-
-
-    // for (int i = 0; i < 2; i++) {
-    //     for (int j = 0; j < 3; j++) {
-    //         cout << "A[" << i << "][" << j << "] = " << testMatrix[j][i] << endl;
-    //     }
-    // }
-/////////////////////////////////////////////////////////////////////////////////
 
 	while(NoQuitMessageSDL()) {
 		Update();
@@ -214,16 +192,22 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
         // determinant is not 0 => A is invertible => continue computing factors
         float a10 = -MinorDeterminant(0,1,A);
         float a20 = MinorDeterminant(0,2,A);
+
+        // computating the distance t
+        vec3 row1 = (1.f/det) * vec3(a00, a10, a20);
+        float t = dot(row1, b);
+
+        // t < 0 => no intersection will occur
+        if (t < 0)
+            continue;
+
+        // compute the rest of the factors
         float a11 = MinorDeterminant(1,1,A);
         float a12 = -MinorDeterminant(2,1,A);
         float a21 = -MinorDeterminant(1,2,A);
         float a22 = MinorDeterminant(2,2,A);
 
         vec3 col1 = (1.f/det) * vec3(a00, a01, a02);
-        // float t = col1.x * b;
-        // if (t < 0)
-        //     continue;
-
         vec3 col2 = (1.f/det) * vec3(a10, a11, a12);
         vec3 col3 = (1.f/det) * vec3(a20, a21, a22);
         mat3 invA(col1, col2, col3);

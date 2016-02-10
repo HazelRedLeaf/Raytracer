@@ -174,9 +174,8 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
         vec3 b = start-v0;
 
         mat3 A(-dir,e1,e2);
-        //vec3 x = glm::inverse(A)*b;
 
-        // unfinished cramer inverse with distance check
+        // finished cramer inverse with distance check
         // compute factors needed for determinant
         float a00 = MinorDeterminant(0,0,A);
         float a01 = -MinorDeterminant(1,0,A);

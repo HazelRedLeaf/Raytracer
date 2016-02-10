@@ -19,14 +19,14 @@ struct Intersection {
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
+const int SCREEN_WIDTH = 100;
+const int SCREEN_HEIGHT = 100;
 SDL_Surface* screen;
 int t;
 vector<Triangle> triangles;
 
 //camera variables
-float focalLength = 300.f;
+float focalLength = 50.f;
 vec3 cameraPos(0.2f,0.f,-2.f);
 float yaw = -M_PI/18.f;
 mat3 R;
@@ -36,29 +36,51 @@ float cameraSpeed = 0.2f;
 vec3 lightPos(0, -0.5, -0.7);
 vec3 lightColour = 14.f * vec3(1,1,1);
 float lightSpeed = 0.2f;
-vec3 indirectLight = 0.5f*vec3(1,1,1);
+vec3 indirectLight = 0.5f * vec3(1,1,1);
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 
 void Update();
 void Draw();
-bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles, Intersection &closestIntersection);
+bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles, 
+        Intersection &closestIntersection);
 void updateCameraAngle(float angle);
 vec3 DirectLight(const Intersection &i);
-//float MinorDeterminant(int i, int j, mat3 A);
+float MinorDeterminant(int i, int j, mat3 A);
 
-int main( int argc, char* argv[] )
-{
+
+int main(int argc, char* argv[]) {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
     
     LoadTestModel(triangles);
-    //initialize camera angle with default yaw
-    updateCameraAngle(yaw);
+    
+    updateCameraAngle(yaw); //initialize camera angle with default yaw
 
-	while( NoQuitMessageSDL() )
-	{
+///////// TO DELETE //////////////////////////////////////////////////////////////
+    // vec3 column1(0.0, -2.0, 4.0);
+    // vec3 column2(1.0, 3.0, 0.0);
+    // vec3 column3(2.0, -1.0, 1.0);
+
+    // mat3 testMatrix(column1, column2, column3);
+
+    // float minor = MinorDeterminant(0,0,testMatrix);
+    // cout << minor << endl;
+    // minor = MinorDeterminant(1,0,testMatrix);
+    // cout << minor << endl;
+    // minor = MinorDeterminant(2,0,testMatrix);
+    // cout << minor << endl;
+
+
+    // for (int i = 0; i < 2; i++) {
+    //     for (int j = 0; j < 3; j++) {
+    //         cout << "A[" << i << "][" << j << "] = " << testMatrix[j][i] << endl;
+    //     }
+    // }
+/////////////////////////////////////////////////////////////////////////////////
+
+	while(NoQuitMessageSDL()) {
 		Update();
 		Draw();
 	}
@@ -68,8 +90,8 @@ int main( int argc, char* argv[] )
 	return 0;
 }
 
-void Update()
-{
+
+void Update() {
 	// Compute frame time:
 	int t2 = SDL_GetTicks();
 	float dt = float(t2-t);
@@ -111,14 +133,15 @@ void Update()
     }
 }
 
+
 void updateCameraAngle(float angle) {
     yaw += angle;
     R = mat3(vec3(cos(angle),0,sin(angle)),vec3(0,1,0),vec3(-sin(angle),0,cos(angle)));
     cameraPos = R * cameraPos;
 }
 
-void Draw()
-{
+
+void Draw() {
 
     SDL_FillRect(screen, 0, 0);
 
@@ -130,10 +153,12 @@ void Draw()
             vec3 dir(x-(SCREEN_WIDTH/2), y-(SCREEN_HEIGHT/2),focalLength);
             Intersection closestIntersection;
             closestIntersection.distance = numeric_limits<float>::max();
+
             if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection)) {
                 //Coloured direct and indirect illumination with shadow
                 vec3 colour = triangles[closestIntersection.triangleIndex].color * (DirectLight(closestIntersection)+indirectLight);
                 PutPixelSDL( screen, x, y, colour);
+
                 //Coloured direct illumination with shadow
                 //vec3 colour = triangles[closestIntersection.triangleIndex].color * DirectLight(closestIntersection);
                 //PutPixelSDL( screen, x, y, colour);
@@ -153,16 +178,11 @@ void Draw()
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
 }
-/*
-float MinorDeterminant(int i, int j, mat3 A) {
-    int a1 = i == 0 ? 1 : 0;
-    int a2 = i == 2 ? 1 : 2;
-    int b1 = j == 0 ? 1 : 0;
-    int b2 = j == 2 ? 1 : 2;
-    return (A[a1][b1] * A[a2][b2]) - (A[a1][b2] * A[a2][b1]);
-}*/
 
-bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles, Intersection &closestIntersection) {
+
+bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles, 
+    Intersection &closestIntersection) {
+
     bool foundIntersect = false;
 
     for(unsigned int i=0; i < triangles.size(); i++) {
@@ -176,32 +196,40 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
         vec3 b = start-v0;
 
         mat3 A(-dir,e1,e2);
-        vec3 x = glm::inverse(A)*b;
-        //unfinished cramer inverse with distance check
-        /*float a11 = MinorDeterminant(0,0,A);
-        float a12 = -MinorDeterminant(1,0,A);
-        float a13 = MinorDeterminant(2,0,A);
-        
-        float det = A[0][0] * a11 - A[1][0] * a12 + A[2][0] * a13;        
+        //vec3 x = glm::inverse(A)*b;
 
-        float a21 = -MinorDeterminant(0,1,A);
-        float a31 = MinorDeterminant(0,2,A);
-         
-        vec3 row1 = vec3(a11,a21,a31) * (1.f/det);
+        // unfinished cramer inverse with distance check
+        // compute factors needed for determinant
+        float a00 = MinorDeterminant(0,0,A);
+        float a01 = -MinorDeterminant(1,0,A);
+        float a02 = MinorDeterminant(2,0,A);
 
-        float t = b.x*row1.x + b.y * row1.y + b.z * row1.z;
-        if(t < 0) {
-            continue;  
-        }
-        
-        float a22 = MinorDeterminant(1,1,A);
-        float a23 = -MinorDeterminant(2,1,A);
-        float a32 = -MinorDeterminant(1,2,A);
-        float a33 = MinorDeterminant(2,2,A);
-        vec3 row2(a12,a22,a32);
-        vec3 row3(a13,a23,a33);
-        
-        vec3 x = (mat3(row1,row2,row3) * (1.f/det)) * b;*/
+        // compute determinant
+        float det = A[0][0] * a00 + A[1][0] * a01 + A[2][0] * a02;   
+
+        // if determinant is 0, A is not invertible
+        if (det == 0 )
+            continue;
+
+        // determinant is not 0 => A is invertible => continue computing factors
+        float a10 = -MinorDeterminant(0,1,A);
+        float a20 = MinorDeterminant(0,2,A);
+        float a11 = MinorDeterminant(1,1,A);
+        float a12 = -MinorDeterminant(2,1,A);
+        float a21 = -MinorDeterminant(1,2,A);
+        float a22 = MinorDeterminant(2,2,A);
+
+        vec3 col1 = (1.f/det) * vec3(a00, a01, a02);
+        // float t = col1.x * b;
+        // if (t < 0)
+        //     continue;
+
+        vec3 col2 = (1.f/det) * vec3(a10, a11, a12);
+        vec3 col3 = (1.f/det) * vec3(a20, a21, a22);
+        mat3 invA(col1, col2, col3);
+
+        // compute x = inv(A) * b 
+        vec3 x = invA * b;
 
         if(0 < x.y && 0 < x.z && (x.y + x.z) < 1 && 0 < x.x) {
             if(closestIntersection.distance > x.x) {
@@ -214,6 +242,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
     }
     return foundIntersect;
 }
+
 
 vec3 DirectLight(const Intersection &i) {
     Triangle tri = triangles[i.triangleIndex];
@@ -239,4 +268,13 @@ vec3 DirectLight(const Intersection &i) {
     vec3 u_r = glm::normalize(r);
     vec3 D = B * (max(glm::dot(u_r, u_n), 0.0f));
     return D;
+}
+
+
+float MinorDeterminant(int i, int j, mat3 A) {
+    int a1 = i == 0 ? 1 : 0;
+    int a2 = i == 2 ? 1 : 2;
+    int b1 = j == 0 ? 1 : 0;
+    int b2 = j == 2 ? 1 : 2;
+    return (A[a1][b1] * A[a2][b2]) - (A[a1][b2] * A[a2][b1]);
 }

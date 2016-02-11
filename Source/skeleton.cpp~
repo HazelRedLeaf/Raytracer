@@ -54,9 +54,10 @@ int main(int argc, char* argv[]) {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
     
+    //Load scene triangles
     LoadTestModel(triangles);
-    
-    updateCameraAngle(yaw); //initialize camera angle with default yaw
+    //initialize camera angle with default yaw
+    updateCameraAngle(yaw); 
 
 	while(NoQuitMessageSDL()) {
 		Update();
@@ -77,6 +78,7 @@ void Update() {
 	cout << "Render time: " << dt << " ms." << endl;
 
     Uint8* keystate = SDL_GetKeyState(0);
+    //Move camera
     if(keystate[SDLK_UP]) {
         cameraPos.z += cameraSpeed;
     } 
@@ -91,6 +93,7 @@ void Update() {
         cameraPos.x += cameraSpeed;
         updateCameraAngle(M_PI/18.f);
     } 
+    //Move light source
     if(keystate[SDLK_w]) {
         lightPos.z += lightSpeed;
     }
@@ -114,7 +117,9 @@ void Update() {
 
 void updateCameraAngle(float angle) {
     yaw += angle;
+    //update rotation matrix with angle
     R = mat3(vec3(cos(angle),0,sin(angle)),vec3(0,1,0),vec3(-sin(angle),0,cos(angle)));
+    //update camera position with rotation matrix
     cameraPos = R * cameraPos;
 }
 

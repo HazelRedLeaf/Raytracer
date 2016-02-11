@@ -175,7 +175,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
     //Iterate through all triangles in scene to find where the ray intersects each (if at all)
     //and to find the closest intersection to the start position
     for(unsigned int i=0; i < triangles.size(); i++) {
-        Triangle triangle = triangles[i];
+        const Triangle triangle = triangles[i];
         const vec3 v0 = triangle.v0;
         const vec3 v1 = triangle.v1;
         const vec3 v2 = triangle.v2;
@@ -244,20 +244,20 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
 
 //Calculates the direct light for a pixel given its closest intersection point
 vec3 DirectLight(const Intersection &i) {
-    Triangle tri = triangles[i.triangleIndex];
+    const Triangle tri = triangles[i.triangleIndex];
     //Triangle coordinate system with origin at v0
-    vec3 e1 = tri.v1-tri.v0;
-    vec3 e2 = tri.v2-tri.v0;
+    const vec3 e1 = tri.v1-tri.v0;
+    const vec3 e2 = tri.v2-tri.v0;
     //Convert triangle-coordinate intersection point to global position
-    vec3 pos = tri.v0 + i.position.y*e1 + i.position.z*e2;
+    const vec3 pos = tri.v0 + i.position.y*e1 + i.position.z*e2;
     //Direction from intersection to light source
-    vec3 r = lightPos - pos;
+    const vec3 r = lightPos - pos;
     //distance between intersection and light source
-    float dist = glm::length(r);
+    const float dist = glm::length(r);
     //distance squared between intersection and light source
-    float rsq = glm::dot(r, r);
+    const float rsq = glm::dot(r, r);
     //Scaled direction vector with distance to form ray
-    vec3 dir = r * (1.f/dist);
+    const vec3 dir = r * (1.f/dist);
 
     //Find closest intersection between pixel scene location and the light source
     Intersection j;
@@ -275,9 +275,9 @@ vec3 DirectLight(const Intersection &i) {
     //u_n is the unit normals of the triangle, and rsq is the squared distance
     //between the surface and light source.
     //B is the power per area reaching any point in a sphere around the light source,
-    vec3 B = lightColour/((float)(4*M_PI*rsq));
-    vec3 u_n = tri.normal;
-    vec3 u_r = glm::normalize(r);
-    vec3 D = B * (max(glm::dot(u_r, u_n), 0.0f));
+    const vec3 B = lightColour/((float)(4*M_PI*rsq));
+    const vec3 u_n = tri.normal;
+    const vec3 u_r = glm::normalize(r);
+    const vec3 D = B * (max(glm::dot(u_r, u_n), 0.0f));
     return D;
 }

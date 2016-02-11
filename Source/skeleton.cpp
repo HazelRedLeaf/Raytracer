@@ -47,16 +47,17 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
         Intersection &closestIntersection);
 void updateCameraAngle(float angle);
 vec3 DirectLight(const Intersection &i);
-float MinorDeterminant(int i, int j, mat3 A);
+float MinorDeterminant(int i, int j, const mat3 &A);
 
 
 int main(int argc, char* argv[]) {
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
     
+    //Load scene triangles
     LoadTestModel(triangles);
-    
-    updateCameraAngle(yaw); //initialize camera angle with default yaw
+    //initialize camera angle with default yaw
+    updateCameraAngle(yaw); 
 
 	while(NoQuitMessageSDL()) {
 		Update();
@@ -77,6 +78,7 @@ void Update() {
 	cout << "Render time: " << dt << " ms." << endl;
 
     Uint8* keystate = SDL_GetKeyState(0);
+    //Move camera
     if(keystate[SDLK_UP]) {
         cameraPos.z += cameraSpeed;
     } 
@@ -91,6 +93,7 @@ void Update() {
         cameraPos.x += cameraSpeed;
         updateCameraAngle(M_PI/18.f);
     } 
+    //Move light source
     if(keystate[SDLK_w]) {
         lightPos.z += lightSpeed;
     }
@@ -114,7 +117,9 @@ void Update() {
 
 void updateCameraAngle(float angle) {
     yaw += angle;
+    //update rotation matrix with angle
     R = mat3(vec3(cos(angle),0,sin(angle)),vec3(0,1,0),vec3(-sin(angle),0,cos(angle)));
+    //update camera position with rotation matrix
     cameraPos = R * cameraPos;
 }
 
@@ -128,11 +133,14 @@ void Draw() {
 
     for(int y = 0; y < SCREEN_HEIGHT; ++y) {
         for(int x = 0; x < SCREEN_WIDTH; ++x) {
+            //ray direction from current pixel
             vec3 dir(x-(SCREEN_WIDTH/2), y-(SCREEN_HEIGHT/2),focalLength);
+
+            //Find the closest intersected triangle from the current pixel/camera position
             Intersection closestIntersection;
             closestIntersection.distance = numeric_limits<float>::max();
-
             if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection)) {
+                //use the intersected triangle to find the pixel's colour and illumination/shadow.
                 //Coloured direct and indirect illumination with shadow
                 vec3 colour = triangles[closestIntersection.triangleIndex].color * (DirectLight(closestIntersection)+indirectLight);
                 PutPixelSDL( screen, x, y, colour);
@@ -145,6 +153,7 @@ void Draw() {
                 //Colour, no light
                 //PutPixelSDL( screen, x, y, triangles[closestIntersection.triangleIndex].color);
             }
+            //No intersection found (eg outside of scene bounds) so colour pixel black
             else {
                 PutPixelSDL( screen, x, y, vec3(0,0,0));
             }
@@ -163,57 +172,64 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
 
     bool foundIntersect = false;
 
+    //Iterate through all triangles in scene to find where the ray intersects each (if at all)
+    //and to find the closest intersection to the start position
     for(unsigned int i=0; i < triangles.size(); i++) {
         Triangle triangle = triangles[i];
-        vec3 v0 = triangle.v0;
-        vec3 v1 = triangle.v1;
-        vec3 v2 = triangle.v2;
+        const vec3 v0 = triangle.v0;
+        const vec3 v1 = triangle.v1;
+        const vec3 v2 = triangle.v2;
         
-        vec3 e1 = v1-v0;
-        vec3 e2 = v2-v0;
-        vec3 b = start-v0;
+        //create triangle coordinate system (with origin at v0)
+        const vec3 e1 = v1-v0;
+        const vec3 e2 = v2-v0;
+        const vec3 b = start-v0;
 
-        mat3 A(-dir,e1,e2);
-
+        //compose matrix A of the negative direction vector and the triangle edges
+        const mat3 A(-dir,e1,e2);
         // finished cramer inverse with distance check
         // compute factors needed for determinant
-        float a00 = MinorDeterminant(0,0,A);
-        float a01 = -MinorDeterminant(1,0,A);
-        float a02 = MinorDeterminant(2,0,A);
+        float a00 = (A[1][1] * A[2][2]) - (A[1][2] * A[2][1]);
+        float a01 = -((A[0][1] * A[2][2]) - (A[0][2] * A[2][1]));
+        float a02 = (A[0][1] * A[1][2]) - (A[0][2] * A[1][1]);
 
         // compute determinant
-        float det = A[0][0] * a00 + A[1][0] * a01 + A[2][0] * a02;   
-
+        const float det = A[0][0] * a00 + A[1][0] * a01 + A[2][0] * a02;   
+        const float invDet = 1.f/det;
         // if determinant is 0, A is not invertible
         if (det == 0 )
             continue;
 
+        a00 *= invDet;
+        a01 *= invDet;
+        a02 *= invDet;
         // determinant is not 0 => A is invertible => continue computing factors
-        float a10 = -MinorDeterminant(0,1,A);
-        float a20 = MinorDeterminant(0,2,A);
+        const float a10 = -((A[1][0] * A[2][2]) - (A[1][2] * A[2][0])) * invDet;
+        const float a20 = ((A[1][0] * A[2][1]) - (A[1][1] * A[2][0])) * invDet;
 
         // computating the distance t
-        vec3 row1 = (1.f/det) * vec3(a00, a10, a20);
-        float t = dot(row1, b);
+        const vec3 row1 = vec3(a00, a10, a20);
+        const float t = dot(row1, b);
 
         // t < 0 => no intersection will occur
         if (t < 0)
             continue;
 
         // compute the rest of the factors
-        float a11 = MinorDeterminant(1,1,A);
-        float a12 = -MinorDeterminant(2,1,A);
-        float a21 = -MinorDeterminant(1,2,A);
-        float a22 = MinorDeterminant(2,2,A);
+        const float a11 = ((A[0][0] * A[2][2]) - (A[0][2] * A[2][0])) * invDet;
+        const float a12 = -((A[0][0] * A[1][2]) - (A[0][2] * A[1][0])) * invDet;
+        const float a21 = -((A[0][0] * A[2][1]) - (A[0][1] * A[2][0])) * invDet;
+        const float a22 = ((A[0][0] * A[1][1]) - (A[0][1] * A[1][0])) * invDet;
 
-        vec3 col1 = (1.f/det) * vec3(a00, a01, a02);
-        vec3 col2 = (1.f/det) * vec3(a10, a11, a12);
-        vec3 col3 = (1.f/det) * vec3(a20, a21, a22);
-        mat3 invA(col1, col2, col3);
+        //Put inverse results together
+        const vec3 col1 = vec3(a00, a01, a02);
+        const vec3 col2 = vec3(a10, a11, a12);
+        const vec3 col3 = vec3(a20, a21, a22);
+        const mat3 invA = mat3(col1, col2, col3);
 
         // compute x = inv(A) * b 
-        vec3 x = invA * b;
-
+        const vec3 x = invA * b;
+        //vec3 x = glm::inverse(A)*b;
         if(0 < x.y && 0 < x.z && (x.y + x.z) < 1 && 0 < x.x) {
             if(closestIntersection.distance > x.x) {
                 closestIntersection.triangleIndex = i;
@@ -226,38 +242,42 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
     return foundIntersect;
 }
 
-
+//Calculates the direct light for a pixel given its closest intersection point
 vec3 DirectLight(const Intersection &i) {
     Triangle tri = triangles[i.triangleIndex];
+    //Triangle coordinate system with origin at v0
     vec3 e1 = tri.v1-tri.v0;
     vec3 e2 = tri.v2-tri.v0;
+    //Convert triangle-coordinate intersection point to global position
     vec3 pos = tri.v0 + i.position.y*e1 + i.position.z*e2;
+    //Direction from intersection to light source
     vec3 r = lightPos - pos;
-    float rsq = glm::dot(r, r);
-
+    //distance between intersection and light source
     float dist = glm::length(r);
+    //distance squared between intersection and light source
+    float rsq = glm::dot(r, r);
+    //Scaled direction vector with distance to form ray
     vec3 dir = r * (1.f/dist);
 
+    //Find closest intersection between pixel scene location and the light source
     Intersection j;
     j.distance = numeric_limits<float>::max();
+    //use a small offset (dir*0.0001f) on starting position to prevent intersection with 
+    //the originating surface
     ClosestIntersection(pos+dir*0.0001f, dir, triangles, j);
+    //If an object is bewteen the surface and the light source, the pixel is in shadow
     if(j.distance < dist) {
         return vec3(0,0,0);
     }
 
-
+    //Calculate DirectLight = (lightColour * max(u_r * u_n, 0)) / (4*pi*rsq)
+    //Where u_r is the unit direction betwene the surface and the light source,
+    //u_n is the unit normals of the triangle, and rsq is the squared distance
+    //between the surface and light source.
+    //B is the power per area reaching any point in a sphere around the light source,
     vec3 B = lightColour/((float)(4*M_PI*rsq));
     vec3 u_n = tri.normal;
     vec3 u_r = glm::normalize(r);
     vec3 D = B * (max(glm::dot(u_r, u_n), 0.0f));
     return D;
-}
-
-
-float MinorDeterminant(int i, int j, mat3 A) {
-    int a1 = i == 0 ? 1 : 0;
-    int a2 = i == 2 ? 1 : 2;
-    int b1 = j == 0 ? 1 : 0;
-    int b2 = j == 2 ? 1 : 2;
-    return (A[a1][b1] * A[a2][b2]) - (A[a1][b2] * A[a2][b1]);
 }

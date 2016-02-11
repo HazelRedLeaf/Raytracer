@@ -1,6 +1,7 @@
 #include <iostream>
 #include <glm/glm.hpp>
 #include <SDL.h>
+#include <X11/Xlib.h> 
 #include "SDLauxiliary.h"
 #include "TestModel.h"
 
@@ -51,6 +52,9 @@ float MinorDeterminant(int i, int j, const mat3 &A);
 
 
 int main(int argc, char* argv[]) {
+    //is necessary for multithreaded access
+    XInitThreads();
+
 	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
     
@@ -131,6 +135,7 @@ void Draw() {
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
+    #pragma omp parallel for
     for(int y = 0; y < SCREEN_HEIGHT; ++y) {
         for(int x = 0; x < SCREEN_WIDTH; ++x) {
             //ray direction from current pixel
@@ -158,6 +163,7 @@ void Draw() {
                 PutPixelSDL( screen, x, y, vec3(0,0,0));
             }
         }
+        //SDL_UpdateRect( screen, 0, 0, 0, 0 );
     }
 
 	if( SDL_MUSTLOCK(screen) )

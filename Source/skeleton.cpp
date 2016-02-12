@@ -48,7 +48,6 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
         Intersection &closestIntersection);
 void updateCameraAngle(float angle);
 vec3 DirectLight(const Intersection &i);
-float MinorDeterminant(int i, int j, const mat3 &A);
 
 
 int main(int argc, char* argv[]) {
@@ -122,7 +121,9 @@ void Update() {
 void updateCameraAngle(float angle) {
     yaw += angle;
     //update rotation matrix with angle
-    R = mat3(vec3(cos(angle),0,sin(angle)),vec3(0,1,0),vec3(-sin(angle),0,cos(angle)));
+    R = mat3(vec3( cos(angle), 0, sin(angle)),
+             vec3(      0,     1,   0    ),
+             vec3(-sin(angle), 0, cos(angle)));
     //update camera position with rotation matrix
     cameraPos = R * cameraPos;
 }
@@ -140,23 +141,15 @@ void Draw() {
         for(int x = 0; x < SCREEN_WIDTH; ++x) {
             //ray direction from current pixel
             vec3 dir(x-(SCREEN_WIDTH/2), y-(SCREEN_HEIGHT/2),focalLength);
-
             //Find the closest intersected triangle from the current pixel/camera position
             Intersection closestIntersection;
             closestIntersection.distance = numeric_limits<float>::max();
             if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection)) {
                 //use the intersected triangle to find the pixel's colour and illumination/shadow.
                 //Coloured direct and indirect illumination with shadow
-                vec3 colour = triangles[closestIntersection.triangleIndex].color * (DirectLight(closestIntersection)+indirectLight);
+                vec3 colour = triangles[closestIntersection.triangleIndex].color 
+                    * (DirectLight(closestIntersection)+indirectLight);
                 PutPixelSDL( screen, x, y, colour);
-
-                //Coloured direct illumination with shadow
-                //vec3 colour = triangles[closestIntersection.triangleIndex].color * DirectLight(closestIntersection);
-                //PutPixelSDL( screen, x, y, colour);
-                //Greyscale direct illumination
-                //PutPixelSDL( screen, x, y, DirectLight(closestIntersection));
-                //Colour, no light
-                //PutPixelSDL( screen, x, y, triangles[closestIntersection.triangleIndex].color);
             }
             //No intersection found (eg outside of scene bounds) so colour pixel black
             else {
@@ -164,6 +157,30 @@ void Draw() {
             }
         }
         //SDL_UpdateRect( screen, 0, 0, 0, 0 );
+    }
+
+    //#pragma omp parallel for
+    for(int y = 1; y < SCREEN_HEIGHT-1; ++y) {
+        for(int x = 1; x < SCREEN_WIDTH-1; ++x) {
+            vec3 areaColor;
+            int areaSize = 0;
+            for(int i = -1; i < 1; i++) {
+                for(int j = -1; j < 1; j++) {
+                    vec3 pixelColor = GetPixelSDL(screen, x+i, y+j);
+                    areaColor.r += pixelColor.r;
+                    areaColor.g += pixelColor.g;
+                    areaColor.b += pixelColor.b;
+                    areaSize++;
+                }
+            }
+            areaColor.r = areaColor.r / areaSize;
+            areaColor.g = areaColor.g / areaSize;
+            areaColor.b = areaColor.b / areaSize;
+
+            for(int i = -1; i < 1; i++)
+                for(int j = -1; j < 1; j++) 
+                    PutPixelSDL(screen,x+i,y+j,areaColor);
+        }
     }
 
 	if( SDL_MUSTLOCK(screen) )
@@ -202,6 +219,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
         // compute determinant
         const float det = A[0][0] * a00 + A[1][0] * a01 + A[2][0] * a02;   
         const float invDet = 1.f/det;
+
         // if determinant is 0, A is not invertible
         if (det == 0 )
             continue;

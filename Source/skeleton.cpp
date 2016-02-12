@@ -139,49 +139,65 @@ void Draw() {
     #pragma omp parallel for
     for(int y = 0; y < SCREEN_HEIGHT; ++y) {
         for(int x = 0; x < SCREEN_WIDTH; ++x) {
-            //ray direction from current pixel
-            vec3 dir(x-(SCREEN_WIDTH/2), y-(SCREEN_HEIGHT/2),focalLength);
-            //Find the closest intersected triangle from the current pixel/camera position
-            Intersection closestIntersection;
-            closestIntersection.distance = numeric_limits<float>::max();
-            if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection)) {
-                //use the intersected triangle to find the pixel's colour and illumination/shadow.
-                //Coloured direct and indirect illumination with shadow
-                vec3 colour = triangles[closestIntersection.triangleIndex].color 
-                    * (DirectLight(closestIntersection)+indirectLight);
-                PutPixelSDL( screen, x, y, colour);
+            vec3 averageColor(0.0,0.0,0.0);
+
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    //ray direction from current pixel
+                    vec3 dir(x-(SCREEN_WIDTH/2)+i, y-(SCREEN_HEIGHT/2)+j,focalLength);
+                    //Find the closest intersected triangle from the current pixel/camera position
+                    Intersection closestIntersection;
+                    closestIntersection.distance = numeric_limits<float>::max();
+                    if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection)) {
+                        //use the intersected triangle to find the pixel's colour and illumination/shadow.
+                        //Coloured direct and indirect illumination with shadow
+                        vec3 currentColour = triangles[closestIntersection.triangleIndex].color 
+                            * (DirectLight(closestIntersection)+indirectLight);
+                        averageColor += currentColour;
+                        //PutPixelSDL( screen, x, y, colour);
+                    }
+                    //No intersection found (eg outside of scene bounds) so colour pixel black
+                    // else {
+                    //     PutPixelSDL( screen, x, y, vec3(0,0,0));
+                    // }
+                }
             }
-            //No intersection found (eg outside of scene bounds) so colour pixel black
-            else {
-                PutPixelSDL( screen, x, y, vec3(0,0,0));
-            }
+
+            averageColor.x = averageColor.x/9;
+            averageColor.y = averageColor.y/9;
+            averageColor.z = averageColor.z/9;
+
+            PutPixelSDL( screen, x, y, averageColor);
+                    
         }
         //SDL_UpdateRect( screen, 0, 0, 0, 0 );
     }
 
-    //#pragma omp parallel for
-    for(int y = 1; y < SCREEN_HEIGHT-1; ++y) {
-        for(int x = 1; x < SCREEN_WIDTH-1; ++x) {
-            vec3 areaColor;
-            int areaSize = 0;
-            for(int i = -1; i < 1; i++) {
-                for(int j = -1; j < 1; j++) {
-                    vec3 pixelColor = GetPixelSDL(screen, x+i, y+j);
-                    areaColor.r += pixelColor.r;
-                    areaColor.g += pixelColor.g;
-                    areaColor.b += pixelColor.b;
-                    areaSize++;
-                }
-            }
-            areaColor.r = areaColor.r / areaSize;
-            areaColor.g = areaColor.g / areaSize;
-            areaColor.b = areaColor.b / areaSize;
+    // //#pragma omp parallel for
+    // for(int y = 1; y < SCREEN_HEIGHT-1; ++y) {
+    //     for(int x = 1; x < SCREEN_WIDTH-1; ++x) {
+    //         vec3 areaColor;
+    //         int areaSize = 0;
+    //         //#pragma omp parallel for
+    //         for(int i = -1; i < 1; i++) {
+    //             for(int j = -1; j < 1; j++) {
+    //                 vec3 pixelColor = GetPixelSDL(screen, x+i, y+j);
+    //                 areaColor.r += pixelColor.r;
+    //                 areaColor.g += pixelColor.g;
+    //                 areaColor.b += pixelColor.b;
+    //                 areaSize++;
+    //             }
+    //         }
+    //         areaColor.r = areaColor.r / areaSize;
+    //         areaColor.g = areaColor.g / areaSize;
+    //         areaColor.b = areaColor.b / areaSize;
 
-            for(int i = -1; i < 1; i++)
-                for(int j = -1; j < 1; j++) 
-                    PutPixelSDL(screen,x+i,y+j,areaColor);
-        }
-    }
+    //         //#pragma omp parallel for
+    //         for(int i = -1; i < 1; i++)
+    //             for(int j = -1; j < 1; j++) 
+    //                 PutPixelSDL(screen,x+i,y+j,areaColor);
+    //     }
+    // }
 
 	if( SDL_MUSTLOCK(screen) )
 		SDL_UnlockSurface(screen);

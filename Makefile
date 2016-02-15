@@ -12,7 +12,7 @@ EXEC=$(B_DIR)/$(FILE)
 # default build settings
 # -lx11 flag allows communication with the x11 windows manager
 # added -fopenmp
-CC_OPTS=-c -pipe -Wall -Wno-switch -ggdb -g3
+CC_OPTS=-c -pipe -Wall -Wno-switch -ggdb -g3 -O3 -pg
 LN_OPTS=-lX11
 CC=g++ -fopenmp
 

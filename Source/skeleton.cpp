@@ -4,6 +4,12 @@
 #include <X11/Xlib.h> 
 #include "SDLauxiliary.h"
 #include "TestModel.h"
+// header inclusion for linux lab machines
+#include "/usr/include/opencv2/objdetect/objdetect.hpp"
+#include "/usr/include/opencv2/opencv.hpp"
+#include "/usr/include/opencv2/core/core.hpp"
+#include "/usr/include/opencv2/highgui/highgui.hpp"
+#include "/usr/include/opencv2/imgproc/imgproc.hpp"
 
 using namespace std;
 using glm::vec3;
@@ -23,6 +29,7 @@ struct Intersection {
 const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
+SDL_Surface* edgeScreen;
 int t;
 vector<Triangle> triangles;
 
@@ -54,7 +61,8 @@ int main(int argc, char* argv[]) {
     //is necessary for multithreaded access
     XInitThreads();
 
-	screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
+	screen = InitializeSDL( 2*SCREEN_WIDTH, SCREEN_HEIGHT );
+    //edgeScreen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
     
     //Load scene triangles
@@ -156,10 +164,10 @@ void Draw() {
                         averageColor += currentColour;
                         //PutPixelSDL( screen, x, y, colour);
                     }
-                    //No intersection found (eg outside of scene bounds) so colour pixel black
-                    // else {
-                    //     PutPixelSDL( screen, x, y, vec3(0,0,0));
-                    // }
+                    // No intersection found (eg outside of scene bounds) so colour pixel black
+                    else {
+                        PutPixelSDL( screen, x, y, vec3(0,0,0));
+                    }
                 }
             }
 
@@ -173,36 +181,70 @@ void Draw() {
         //SDL_UpdateRect( screen, 0, 0, 0, 0 );
     }
 
-    // //#pragma omp parallel for
-    // for(int y = 1; y < SCREEN_HEIGHT-1; ++y) {
-    //     for(int x = 1; x < SCREEN_WIDTH-1; ++x) {
-    //         vec3 areaColor;
-    //         int areaSize = 0;
-    //         //#pragma omp parallel for
-    //         for(int i = -1; i < 1; i++) {
-    //             for(int j = -1; j < 1; j++) {
-    //                 vec3 pixelColor = GetPixelSDL(screen, x+i, y+j);
-    //                 areaColor.r += pixelColor.r;
-    //                 areaColor.g += pixelColor.g;
-    //                 areaColor.b += pixelColor.b;
-    //                 areaSize++;
-    //             }
-    //         }
-    //         areaColor.r = areaColor.r / areaSize;
-    //         areaColor.g = areaColor.g / areaSize;
-    //         areaColor.b = areaColor.b / areaSize;
+    ///////////////////////////////////////////////////
+    // Sobel edge detection attempt
 
-    //         //#pragma omp parallel for
-    //         for(int i = -1; i < 1; i++)
-    //             for(int j = -1; j < 1; j++) 
-    //                 PutPixelSDL(screen,x+i,y+j,areaColor);
-    //     }
-    // }
+    // kernels
+    mat3 dXkernel = mat3(vec3( -1, -2, -1),
+                         vec3(  0,  0,  0),
+                         vec3(  1,  2,  1)); 
+
+    mat3 dYkernel = mat3(vec3( -1,  0,  1),
+                         vec3( -2,  0,  2),
+                         vec3( -1,  0,  1));
+
+    // Grayscale representation of current frame
+    #pragma omp parallel for
+    for(int y = 1; y < SCREEN_HEIGHT - 1; ++y) {
+        for(int x = 1; x < SCREEN_WIDTH - 1; ++x) {
+            vec3 color = GetPixelSDL(screen, x, y);
+            float graycolor = (color.x + color.y + color.z) / 3;
+            vec3 grayColorVec (graycolor, graycolor, graycolor);
+            PutPixelSDL( screen, x+SCREEN_WIDTH, y, grayColorVec);
+        }
+    }
+
+    // convolution
+    //#pragma omp parallel for
+    for(int y = 1; y < SCREEN_HEIGHT - 1; ++y) {
+        for(int x = 1; x < SCREEN_WIDTH - 1; ++x) {
+            float magnitude = abs(GetPixelSDL(screen, x+SCREEN_WIDTH    , y    ).x 
+                                - GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x)
+                            + abs(GetPixelSDL(screen, x+SCREEN_WIDTH    , y + 1).x
+                                - GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y    ).x);
+
+            // float pixelX = (dXkernel[0][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x +
+            //                 dXkernel[0][1] * GetPixelSDL(screen, x+SCREEN_WIDTH    , y + 1).x +
+            //                 dXkernel[0][2] * GetPixelSDL(screen, x+SCREEN_WIDTH - 1, y + 1).x +
+            //                 dXkernel[1][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y    ).x +
+            //                 dXkernel[1][1] * GetPixelSDL(screen, x+SCREEN_WIDTH,     y    ).x +
+            //                 dXkernel[1][2] * GetPixelSDL(screen, x+SCREEN_WIDTH - 1, y    ).x +
+            //                 dXkernel[2][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x +
+            //                 dXkernel[2][1] * GetPixelSDL(screen, x+SCREEN_WIDTH,     y - 1).x +
+            //                 dXkernel[2][2] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x );
+
+            // float pixelY = (dYkernel[0][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x +
+            //                 dYkernel[0][1] * GetPixelSDL(screen, x+SCREEN_WIDTH    , y + 1).x +
+            //                 dYkernel[0][2] * GetPixelSDL(screen, x+SCREEN_WIDTH - 1, y + 1).x +
+            //                 dYkernel[1][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y    ).x +
+            //                 dYkernel[1][1] * GetPixelSDL(screen, x+SCREEN_WIDTH,     y    ).x +
+            //                 dYkernel[1][2] * GetPixelSDL(screen, x+SCREEN_WIDTH - 1, y    ).x +
+            //                 dYkernel[2][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x +
+            //                 dYkernel[2][1] * GetPixelSDL(screen, x+SCREEN_WIDTH,     y - 1).x +
+            //                 dYkernel[2][2] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x );
+
+            // float magnitude = sqrt(pixelX * pixelX + pixelY * pixelY);
+            // magnitude = magnitude * 255.0 / (4 * 255 * sqrt(2));
+            vec3 magVector (magnitude, magnitude, magnitude);
+            PutPixelSDL( screen, x+SCREEN_WIDTH, y, magVector);
+        }
+    }
 
 	if( SDL_MUSTLOCK(screen) )
 		SDL_UnlockSurface(screen);
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
+    //SDL_UpdateRect( edgeScreen, 0, 0, 0, 0 );
 }
 
 

@@ -23,6 +23,11 @@ struct Intersection {
     int triangleIndex;
 };
 
+struct Light {
+    vec3 pos;
+    vec3 colour;
+};
+
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
 
@@ -39,10 +44,10 @@ vec3 cameraPos(0.2f,0.f,-2.f);
 float yaw = -M_PI/18.f;
 mat3 R;
 float cameraSpeed = 0.2f;
+float focus = 0.0f;
 
 //light variables
-vec3 lightPos(0, -0.5, -0.7);
-vec3 lightColour = 14.f * vec3(1,1,1);
+vector<Light> lights;
 float lightSpeed = 0.2f;
 vec3 indirectLight = 0.5f * vec3(1,1,1);
 
@@ -54,7 +59,7 @@ void Draw();
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles, 
         Intersection &closestIntersection);
 void updateCameraAngle(float angle);
-vec3 DirectLight(const Intersection &i);
+vec3 DirectLight(const Intersection &i, int k);
 
 
 int main(int argc, char* argv[]) {
@@ -62,13 +67,39 @@ int main(int argc, char* argv[]) {
     XInitThreads();
 
 	screen = InitializeSDL( 2*SCREEN_WIDTH, SCREEN_HEIGHT );
-    //edgeScreen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT );
 	t = SDL_GetTicks();	// Set start value for timer.
     
     //Load scene triangles
     LoadTestModel(triangles);
     //initialize camera angle with default yaw
-    updateCameraAngle(yaw); 
+    updateCameraAngle(yaw);
+
+    Light ceilingLight;
+    ceilingLight.pos = vec3(0, -0.5, -0.7);
+    ceilingLight.colour = 14.f * vec3(1,1,1);
+
+    Light fairyLight1;
+    fairyLight1.pos = vec3(0.8, -0.6, 0.65);
+    fairyLight1.colour = 3.f * vec3(1,0.3,0.3);
+
+    Light fairyLight2;
+    fairyLight2.pos = vec3(0.8, 0.3, 0.2);
+    fairyLight2.colour = 3.f * vec3(1,0.3,0.3);
+
+    Light fairyLight3;
+    fairyLight3.pos = vec3(0.8, 0, -0.3);
+    fairyLight3.colour = 3.f * vec3(1,0.3,0.3);
+
+    Light fairyLight4;
+    fairyLight4.pos = vec3(0.8, -0.3, -0.8);
+    fairyLight4.colour = 3.f * vec3(1,0.3,0.3);
+
+
+    lights.push_back(ceilingLight);
+    lights.push_back(fairyLight1);
+    lights.push_back(fairyLight2);
+    lights.push_back(fairyLight3);
+    lights.push_back(fairyLight4);
 
 	while(NoQuitMessageSDL()) {
 		Update();
@@ -86,7 +117,7 @@ void Update() {
 	int t2 = SDL_GetTicks();
 	float dt = float(t2-t);
 	t = t2;
-	cout << "Render time: " << dt << " ms." << endl;
+	//cout << "Render time: " << dt << " ms." << endl;
 
     Uint8* keystate = SDL_GetKeyState(0);
     //Move camera
@@ -106,22 +137,40 @@ void Update() {
     } 
     //Move light source
     if(keystate[SDLK_w]) {
-        lightPos.z += lightSpeed;
+        lights[0].pos.z += lightSpeed;
+        cout << "Pos ( " << lights[1].pos.x 
+             << " , " << lights[1].pos.y 
+             << " , " << lights[1].pos.z << " ) \n";
     }
     if(keystate[SDLK_s]){
-        lightPos.z -= lightSpeed;
+        lights[0].pos.z -= lightSpeed;
+        cout << "Pos ( " << lights[1].pos.x 
+             << " , " << lights[1].pos.y 
+             << " , " << lights[1].pos.z << " ) \n";
     }
     if(keystate[SDLK_d]){
-        lightPos.x -= lightSpeed;
+        lights[0].pos.x -= lightSpeed;
+        cout << "Pos ( " << lights[1].pos.x 
+             << " , " << lights[1].pos.y 
+             << " , " << lights[1].pos.z << " ) \n";
     }
     if(keystate[SDLK_a]){
-        lightPos.x += lightSpeed;
+        lights[0].pos.x += lightSpeed;
+        cout << "Pos ( " << lights[1].pos.x 
+             << " , " << lights[1].pos.y 
+             << " , " << lights[1].pos.z << " ) \n";
     }
     if(keystate[SDLK_q]){
-        lightPos.y += lightSpeed;
+        lights[0].pos.y += lightSpeed;
+        cout << "Pos ( " << lights[1].pos.x 
+             << " , " << lights[1].pos.y 
+             << " , " << lights[1].pos.z << " ) \n";
     }
     if(keystate[SDLK_e]){
-        lightPos.y -= lightSpeed;
+        lights[0].pos.y -= lightSpeed;
+        cout << "Pos ( " << lights[1].pos.x 
+             << " , " << lights[1].pos.y 
+             << " , " << lights[1].pos.z << " ) \n";
     }
 }
 
@@ -147,22 +196,42 @@ void Draw() {
     #pragma omp parallel for
     for(int y = 0; y < SCREEN_HEIGHT; ++y) {
         for(int x = 0; x < SCREEN_WIDTH; ++x) {
-            vec3 averageColor(0.0,0.0,0.0);
+            vec3 averageColor(0.0, 0.0, 0.0); 
+            vec3 shadowColor(0.0, 0.0, 0.0);
 
+            // shoot 9 rays instead of just 1
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 3; j++) {
                     //ray direction from current pixel
                     vec3 dir(x-(SCREEN_WIDTH/2)+i, y-(SCREEN_HEIGHT/2)+j,focalLength);
+
                     //Find the closest intersected triangle from the current pixel/camera position
                     Intersection closestIntersection;
                     closestIntersection.distance = numeric_limits<float>::max();
+
                     if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection)) {
-                        //use the intersected triangle to find the pixel's colour and illumination/shadow.
-                        //Coloured direct and indirect illumination with shadow
-                        vec3 currentColour = triangles[closestIntersection.triangleIndex].color 
-                            * (DirectLight(closestIntersection)+indirectLight);
-                        averageColor += currentColour;
-                        //PutPixelSDL( screen, x, y, colour);
+
+                        if (closestIntersection.distance == focus) {
+                            //use the intersected triangle to find the pixel's colour and illumination/shadow.
+                            //Coloured direct and indirect illumination with shadow
+                            vec3 currentColour = triangles[closestIntersection.triangleIndex].color 
+                                *(DirectLight(closestIntersection, 0)
+                                + DirectLight(closestIntersection, 1) 
+                                + DirectLight(closestIntersection, 2)
+                                + DirectLight(closestIntersection, 3)
+                                + DirectLight(closestIntersection, 4)    
+                                + indirectLight);
+                            averageColor += currentColour;
+                        } else {
+                            vec3 currentColour = triangles[closestIntersection.triangleIndex].color 
+                                *(DirectLight(closestIntersection, 0)
+                                + DirectLight(closestIntersection, 1) 
+                                + DirectLight(closestIntersection, 2)
+                                + DirectLight(closestIntersection, 3)
+                                + DirectLight(closestIntersection, 4)    
+                                + indirectLight);
+                            averageColor += currentColour;
+                        }
                     }
                     // No intersection found (eg outside of scene bounds) so colour pixel black
                     else {
@@ -178,20 +247,10 @@ void Draw() {
             PutPixelSDL( screen, x, y, averageColor);
                     
         }
-        //SDL_UpdateRect( screen, 0, 0, 0, 0 );
     }
 
     ///////////////////////////////////////////////////
-    // Sobel edge detection attempt
-
-    // kernels
-    mat3 dXkernel = mat3(vec3( -1, -2, -1),
-                         vec3(  0,  0,  0),
-                         vec3(  1,  2,  1)); 
-
-    mat3 dYkernel = mat3(vec3( -1,  0,  1),
-                         vec3( -2,  0,  2),
-                         vec3( -1,  0,  1));
+    // Roberts operator for edge detection
 
     // Grayscale representation of current frame
     #pragma omp parallel for
@@ -204,7 +263,8 @@ void Draw() {
         }
     }
 
-    // convolution
+    // edge detection with convolution
+    // should be blurring with convolution instead
     //#pragma omp parallel for
     for(int y = 1; y < SCREEN_HEIGHT - 1; ++y) {
         for(int x = 1; x < SCREEN_WIDTH - 1; ++x) {
@@ -213,28 +273,6 @@ void Draw() {
                             + abs(GetPixelSDL(screen, x+SCREEN_WIDTH    , y + 1).x
                                 - GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y    ).x);
 
-            // float pixelX = (dXkernel[0][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x +
-            //                 dXkernel[0][1] * GetPixelSDL(screen, x+SCREEN_WIDTH    , y + 1).x +
-            //                 dXkernel[0][2] * GetPixelSDL(screen, x+SCREEN_WIDTH - 1, y + 1).x +
-            //                 dXkernel[1][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y    ).x +
-            //                 dXkernel[1][1] * GetPixelSDL(screen, x+SCREEN_WIDTH,     y    ).x +
-            //                 dXkernel[1][2] * GetPixelSDL(screen, x+SCREEN_WIDTH - 1, y    ).x +
-            //                 dXkernel[2][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x +
-            //                 dXkernel[2][1] * GetPixelSDL(screen, x+SCREEN_WIDTH,     y - 1).x +
-            //                 dXkernel[2][2] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x );
-
-            // float pixelY = (dYkernel[0][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x +
-            //                 dYkernel[0][1] * GetPixelSDL(screen, x+SCREEN_WIDTH    , y + 1).x +
-            //                 dYkernel[0][2] * GetPixelSDL(screen, x+SCREEN_WIDTH - 1, y + 1).x +
-            //                 dYkernel[1][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y    ).x +
-            //                 dYkernel[1][1] * GetPixelSDL(screen, x+SCREEN_WIDTH,     y    ).x +
-            //                 dYkernel[1][2] * GetPixelSDL(screen, x+SCREEN_WIDTH - 1, y    ).x +
-            //                 dYkernel[2][0] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x +
-            //                 dYkernel[2][1] * GetPixelSDL(screen, x+SCREEN_WIDTH,     y - 1).x +
-            //                 dYkernel[2][2] * GetPixelSDL(screen, x+SCREEN_WIDTH + 1, y + 1).x );
-
-            // float magnitude = sqrt(pixelX * pixelX + pixelY * pixelY);
-            // magnitude = magnitude * 255.0 / (4 * 255 * sqrt(2));
             vec3 magVector (magnitude, magnitude, magnitude);
             PutPixelSDL( screen, x+SCREEN_WIDTH, y, magVector);
         }
@@ -244,7 +282,6 @@ void Draw() {
 		SDL_UnlockSurface(screen);
 
 	SDL_UpdateRect( screen, 0, 0, 0, 0 );
-    //SDL_UpdateRect( edgeScreen, 0, 0, 0, 0 );
 }
 
 
@@ -268,7 +305,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
 
         //compose matrix A of the negative direction vector and the triangle edges
         const mat3 A(-dir,e1,e2);
-        // finished cramer inverse with distance check
+        // completed cramer inverse with distance check
         // compute factors needed for determinant
         float a00 = (A[1][1] * A[2][2]) - (A[1][2] * A[2][1]);
         float a01 = -((A[0][1] * A[2][2]) - (A[0][2] * A[2][1]));
@@ -325,7 +362,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles
 }
 
 //Calculates the direct light for a pixel given its closest intersection point
-vec3 DirectLight(const Intersection &i) {
+vec3 DirectLight(const Intersection &i, int k) {
     const Triangle tri = triangles[i.triangleIndex];
     //Triangle coordinate system with origin at v0
     const vec3 e1 = tri.v1-tri.v0;
@@ -333,33 +370,40 @@ vec3 DirectLight(const Intersection &i) {
     //Convert triangle-coordinate intersection point to global position
     const vec3 pos = tri.v0 + i.position.y*e1 + i.position.z*e2;
     //Direction from intersection to light source
-    const vec3 r = lightPos - pos;
+    const vec3 r = lights[k].pos - pos;
     //distance between intersection and light source
     const float dist = glm::length(r);
     //distance squared between intersection and light source
     const float rsq = glm::dot(r, r);
     //Scaled direction vector with distance to form ray
-    const vec3 dir = r * (1.f/dist);
-
+    //use a small offset (dir*0.0001f) on starting position to prevent intersection with 
+    //the originating surface
+    const vec3 dir = r/dist ;
+    vec3 D;
+        
     //Find closest intersection between pixel scene location and the light source
     Intersection j;
     j.distance = numeric_limits<float>::max();
-    //use a small offset (dir*0.0001f) on starting position to prevent intersection with 
-    //the originating surface
-    ClosestIntersection(pos+dir*0.0001f, dir, triangles, j);
+
+    ClosestIntersection(pos+dir* 0.0001f, dir, triangles, j);
+
     //If an object is bewteen the surface and the light source, the pixel is in shadow
     if(j.distance < dist) {
-        return vec3(0,0,0);
+        D.x = 0.0;
+        D.y = 0.0;
+        D.z = 0.0;
+        return D;
     }
 
-    //Calculate DirectLight = (lightColour * max(u_r * u_n, 0)) / (4*pi*rsq)
-    //Where u_r is the unit direction betwene the surface and the light source,
-    //u_n is the unit normals of the triangle, and rsq is the squared distance
-    //between the surface and light source.
-    //B is the power per area reaching any point in a sphere around the light source,
-    const vec3 B = lightColour/((float)(4*M_PI*rsq));
+    // Calculate DirectLight = (lightColour * max(u_r * u_n, 0)) / (4*pi*rsq)
+    // Where u_r is the unit direction betwene the surface and the light source,
+    // u_n is the unit normals of the triangle, and rsq is the squared distance
+    // between the surface and light source.
+    // B is the power per area reaching any point in a sphere around the light source,
+    const vec3 B = lights[k].colour/((float)(4*M_PI*rsq));
     const vec3 u_n = tri.normal;
     const vec3 u_r = glm::normalize(r);
-    const vec3 D = B * (max(glm::dot(u_r, u_n), 0.0f));
+    D = B * (max(glm::dot(u_r, u_n), 0.0f));  
+
     return D;
 }

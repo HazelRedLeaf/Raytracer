@@ -40,7 +40,7 @@ vector<Triangle> triangles;
 
 //camera variables
 float focalLength = 300.f;
-vec3 cameraPos(0.2f,0.f,-2.f);
+vec3 cameraPos(0.35f,0.f,-2.f);
 float yaw = -M_PI/18.f;
 mat3 R;
 float cameraSpeed = 0.2f;
@@ -56,8 +56,11 @@ vec3 indirectLight = 0.5f * vec3(1,1,1);
 
 void Update();
 void Draw();
-bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle> &triangles, 
-        Intersection &closestIntersection);
+bool ClosestIntersection(
+    vec3 start, 
+    vec3 dir, 
+    const vector<Triangle> &triangles, 
+    Intersection &closestIntersection);
 void updateCameraAngle(float angle);
 vec3 DirectLight(const Intersection &i, int k);
 
@@ -117,7 +120,7 @@ void Update() {
 	int t2 = SDL_GetTicks();
 	float dt = float(t2-t);
 	t = t2;
-	//cout << "Render time: " << dt << " ms." << endl;
+	cout << "Render time: " << dt << " ms." << endl;
 
     Uint8* keystate = SDL_GetKeyState(0);
     //Move camera
@@ -193,16 +196,13 @@ void Draw() {
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
 
-    float intersections[SCREEN_WIDTH][SCREEN_HEIGHT];
+    //float intersections[SCREEN_WIDTH][SCREEN_HEIGHT];
 
     #pragma omp parallel for
     for(int y = 0; y < SCREEN_HEIGHT; ++y) {
         for(int x = 0; x < SCREEN_WIDTH; ++x) {
-            vec3 averageColor(0.0, 0.0, 0.0); 
-            vec3 shadowColor(0.0, 0.0, 0.0);
-            float averageIntersection = 0.0;
-            vec3 previousColor(0.0, 0.0, 0.0);
-            int smudge = 0;
+            vec3 averageColor(0.0, 0.0, 0.0);
+            vec3 averageSectionColor(0.0, 0.0, 0.0); 
 
             // shoot 9 rays instead of just 1
             for (int i = 0; i < 3; i++) {
@@ -217,7 +217,8 @@ void Draw() {
                     if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection)) {
 
                         // in focus
-                        if (intersections[x][y] < focus + 0.01f && intersections[x][y] > focus - 0.01f) {
+                        if (closestIntersection.distance < focus + 0.01f 
+                        && closestIntersection.distance > focus - 0.01f) {
                             //use the intersected triangle to find the pixel's colour and illumination/shadow.
                             //Coloured direct and indirect illumination with shadow
                             vec3 currentColour = triangles[closestIntersection.triangleIndex].color 
@@ -227,7 +228,6 @@ void Draw() {
                                 + DirectLight(closestIntersection, 3)
                                 + DirectLight(closestIntersection, 4)    
                                 + indirectLight);
-                            previousColor = currentColour;
                             averageColor += currentColour;
                         } else {
                             vec3 currentColour = triangles[closestIntersection.triangleIndex].color 
@@ -238,10 +238,7 @@ void Draw() {
                                 + DirectLight(closestIntersection, 4)    
                                 + indirectLight);
 
-                            averageColor += previousColor + currentColour;
-                            previousColor = currentColour;
-                            smudge++;
-
+                            averageColor += currentColour;
                         }
                     }
                     // No intersection found (eg outside of scene bounds) so colour pixel black
@@ -251,12 +248,9 @@ void Draw() {
                 }
             }
 
-            averageColor.x = averageColor.x/(9 + smudge);
-            averageColor.y = averageColor.y/(9 + smudge);
-            averageColor.z = averageColor.z/(9 + smudge);
-            averageIntersection /= 9;
-
-            intersections[x][y] = averageIntersection;
+            averageColor.x = averageColor.x/9;
+            averageColor.y = averageColor.y/9;
+            averageColor.z = averageColor.z/9;
 
             PutPixelSDL( screen, x, y, averageColor);
                     

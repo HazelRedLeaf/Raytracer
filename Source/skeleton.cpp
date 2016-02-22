@@ -44,7 +44,7 @@ vec3 cameraPos(0.35f,0.f,-2.f);
 float yaw = -M_PI/18.f;
 mat3 R;
 float cameraSpeed = 0.2f;
-float focus = 0.008f;
+float focus = 0.004f;
 
 //light variables
 vector<Light> lights;
@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
     fairyLight1.colour = 3.f * vec3(1,0.3,0.3);
 
     Light fairyLight2;
-    fairyLight2.pos = vec3(0.8, 0.3, 0.2);
+    fairyLight2.pos = vec3(-0.8, 0.3, 0.65);
     fairyLight2.colour = 3.f * vec3(1,0.3,0.3);
 
     Light fairyLight3;
@@ -213,8 +213,8 @@ void Draw() {
                     vec3 dir(x-(SCREEN_WIDTH/2)+i, y-(SCREEN_HEIGHT/2)+j,focalLength);
 
                     //Find the closest intersected triangle from the current pixel/camera position
-            Intersection closestIntersection;
-            closestIntersection.distance = numeric_limits<float>::max();
+                    Intersection closestIntersection;
+                    closestIntersection.distance = numeric_limits<float>::max();
 
                     if(ClosestIntersection(cameraPos, dir, triangles, closestIntersection)) {
                             //use the intersected triangle to find the pixel's colour and illumination/shadow.
@@ -227,7 +227,7 @@ void Draw() {
                                 + DirectLight(closestIntersection, 4)    
                                 + indirectLight);
                             averageColor += currentColour;
-                            intersections[x][y] = round(closestIntersection.distance * 1000) / 1000;
+                            intersections[x][y] = closestIntersection.distance;
                     }
                     // No intersection found (eg outside of scene bounds) so colour pixel black
                     else {
@@ -245,10 +245,10 @@ void Draw() {
     }
 
     //cout << max_element(intersections[0][0], intersections[SCREEN_WIDTH][SCREEN_HEIGHT]) << endl;
-    //#pragma omp parallel for
-    for(int y = 1; y < SCREEN_HEIGHT - 1; ++y) {
-        for(int x = 1; x < SCREEN_WIDTH - 1; ++x) {
-            if (intersections[x][y] == focus)
+    #pragma omp parallel for
+    for(int y = 0; y < SCREEN_HEIGHT; ++y) {
+        for(int x = 0; x < SCREEN_WIDTH; ++x) {
+            if (intersections[x][y] > focus - 0.001f && intersections[x][y] < focus + 0.001f)
                 continue;
 
             vec3 averageColor;

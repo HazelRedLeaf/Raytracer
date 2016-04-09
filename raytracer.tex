@@ -117,7 +117,13 @@
 	\texttt{make \&\&  .\textbackslash Build\textbackslash skeleton} 
 
 	\section*{2. Parts 1 and 2}
-	Some summary of the parts up to 70\%. 
+	The scene is stored as a collection of triangles in a global list. Rays are cast for every pixel on the screen, with their directions given by the offset of their pixels from the center of the screen and the focal length. \par
+	For every ray, the program finds the intersection, if any, with each of the triangles in the scene. These intersections are sorted by distance, such that the closest intersection can be assumed to be with the surface that should be visible to the camera at the pixel's location. The colour of closest intersected surface's triangle is then used to colour the pixel. \par
+	In order to allow navigation of the scene, the Update method called on every frame was expanded to listen for keyboard input. If the up, down, left or right keyboard keys are pressed the camera's position is translated. This was added to with the ability to also rotate the camera, such that the left and right keys rotate the camera in either direction, using a rotation matrix. \par
+	A light source with colour and position properties was added to the scene to begin illuminating it with direct light. The direct light of any given intersection point and triangle is calculated in the \texttt{DirectLight} method. It calculates the power of the light source as a sphere around its position, and finds the amount of light hitting any real surface. By passing the closest intersection point and its triangle into the method, it is possible to calculate the amount of direct light for each pixel. Multiplying the colour of the pixel's closest intersected triangle by the direct light then gives the illumination-adjusted colour value of the pixel. \par
+	Further keyboard input functionality was added to the Update method to to enable movement of the light source. The light source can be translated using the following keyboard keys: W, S, A, D, Q and E. \par
+	To draw shadows, additional rays are casted in the DirectLight method, from the surface intersection point to the light source. By finding the distance of the closest intersected point and comparing it to the distance of the light source, it is possible to determine whether a surface is in the way of the light. If this is the case, the pixel is given zero direct illumination. \par
+	Our final implementation for parts 1 and 2 was indirect illumination, to simulate light `bouncing' between surfaces. This was done using a global constant for indirect illumination and factoring it into each pixel's colour value alongside direct light. 
 		
 	\section*{3. Extensions}
 	\subsection*{Cramer's rule for inverting matrices}

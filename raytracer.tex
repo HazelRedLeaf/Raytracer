@@ -56,7 +56,7 @@
 
 \renewcommand{\headrulewidth}{0.2pt} % Thin header rule
 \renewcommand{\footrulewidth}{0.4pt} % Thin footer rule
-\headsep 5pt
+\headsep 35pt
 \usepackage{lettrine} % Package to accentuate the first letter of the text
 \newcommand{\initial}[1]{ % Defines the command and style for the first letter
 	\lettrine[lines=3,lhang=0.3,nindent=0em]{
@@ -71,10 +71,10 @@
 
 \usepackage{titling} % Allows custom title configuration
 
-\newcommand{\HorRule}{\color{Goldenrod} \rule{\linewidth}{1pt}} % Defines the blue horizontal rule under the title
+\newcommand{\HorRule}{\color{Goldenrod} \rule{\linewidth}{1pt}} % Defines the horizontal rule under the title
 	
 
-\pretitle{\vspace{-10pt} \begin{center} \fontsize{25}{25} \usefont{OT1}{phv}{b}{n} \color{Goldenrod} \selectfont} % Horizontal rule before the title
+\pretitle{\vspace{-40pt} \begin{center} \fontsize{25}{25} \usefont{OT1}{phv}{b}{n} \color{Goldenrod} \selectfont} % Horizontal rule before the title
 	
 	\title{Raytracer} % Your article title
 	
@@ -136,7 +136,7 @@
 		a_{20} & a_{21} & a_{22} 
 		\end{bmatrix}
 		\quad
-		A^{-1} = \dfrac{1}{det(A)}
+		A^{-1} = \dfrac{1}{\operatorname{det}(A)}
 		\begin{bmatrix} 
 		A_{00} & A_{01} & A_{02} \\
 		A_{10} & A_{11} & A_{12} \\

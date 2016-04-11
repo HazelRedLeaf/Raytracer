@@ -37,7 +37,7 @@ float focalLength = 300.f;
 vec3 cameraPos(0.35f,0.f,-2.f);
 float yaw = -M_PI/18.f;
 mat3 R;
-float cameraSpeed = 0.2f;
+float cameraSpeed = 0.00002f;
 float focus = 0.005f;
 
 //light variables
@@ -119,15 +119,15 @@ void Update() {
     Uint8* keystate = SDL_GetKeyState(0);
     //Move camera
     if(keystate[SDLK_UP])
-        cameraPos.z += cameraSpeed;
+        cameraPos.z += cameraSpeed*dt;
     if(keystate[SDLK_DOWN])
-        cameraPos.z -= cameraSpeed; 
+        cameraPos.z -= cameraSpeed*dt; 
     if(keystate[SDLK_LEFT]) {
-        cameraPos.x -= cameraSpeed;
+        cameraPos.x -= cameraSpeed*dt;
         updateCameraAngle(-M_PI/18.f);
     } 
     if(keystate[SDLK_RIGHT]) {
-        cameraPos.x += cameraSpeed;
+        cameraPos.x += cameraSpeed*dt;
         updateCameraAngle(M_PI/18.f);
     } 
     //Move light source

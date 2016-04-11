@@ -32,7 +32,7 @@
 \usepackage[hang, small,labelfont=bf,up,textfont=it,up]{caption} % Custom captions under/above floats in tables or figures
 \usepackage{booktabs} % Horizontal rules in tables
 \usepackage{fix-cm}	 % Custom font sizes - used for the initial letter in the document
-
+\usepackage{url} % url-s
 \usepackage{sectsty} % Enables custom section titles
 \usepackage{titlesec} % enables inserting margins around sections and subsections
 
@@ -119,15 +119,15 @@
 	\section*{2. Parts 1 and 2}
 	The scene is stored as a collection of triangles in a global list. Rays are cast for every pixel on the screen, with their directions given by the offset of their pixels from the centre of the screen along with the focal length. \par
 	For every ray, the program finds the intersection, if any, with each of the triangles in the scene. These intersections are sorted by distance, such that the closest intersection can be assumed to be with the surface that should be visible to the camera at the pixel's location. The colour of the closest intersected surface's triangle is then used as the pixel's colour. \par
-	In order to allow navigation of the scene, the \texttt{Update} method called on every frame was expanded to listen for keyboard input. If the up, down, left or right keyboard keys are pressed the camera's position is translated. This was further expanded with the ability to also rotate the camera, such that the left and right keys rotate the camera in either direction, using a rotation matrix. \par
+	In order to allow navigation of the scene, the \texttt{Update()} method called on every frame was expanded to listen for keyboard input. If the up, down, left or right keyboard keys are pressed the camera's position is translated. This was further expanded with the ability to also rotate the camera, such that the left and right keys rotate the camera in either direction, using a rotation matrix. \par
 	A light source with colour and position properties was added to the scene to begin illuminating it with direct light. The direct light reaching any given ray's intersection point and triangle is calculated in the \texttt{DirectLight} method. It calculates the power of the light source as a sphere around its position, with a radius given by the distance of a surface from the light source. Whether a surface is facing the light source is determined using the dot product of the unit normal vector of the surface's triangle with the unit radius of the sphere. If this value is negative, the surface receives no direct light. This method is then called with every pixel's closest intersection in order to calculate the pixel's direct light. Multiplying the colour of the pixel's closest intersected triangle by the direct light gives its illumination-adjusted colour value. \par
 	Further keyboard input functionality was added to the Update method to to enable movement of the light source. The light source can be translated using the following keyboard keys: W, S, A, D, Q and E. \par
-	To draw shadows, additional rays are casted in the \texttt{DirectLight} method from the surface intersection point to the light source. By finding the distance of the closest intersected point and comparing it to the distance to the light source, it is possible to determine whether a surface is in the way of the light. If this is the case, the pixel is given zero direct illumination. \par
+	To draw shadows, additional rays are cast in the \texttt{DirectLight()} method from the surface intersection point to the light source. By finding the distance of the closest intersected point and comparing it to the distance to the light source, it is possible to determine whether a surface is in the way of the light. If this is the case, the pixel is given zero direct illumination. \par
 	Our final implementation for parts 1 and 2 was indirect illumination, to simulate light 'bouncing' between surfaces. This was done using a global constant for indirect illumination and factoring it into each pixel's colour value alongside direct light. 
 		
 	\section*{3. Extensions}
 	\subsection*{Cramer's rule for inverting matrices}
-	Using Cramer's rule instead of \texttt{glm::inverse} to invert matrices sped up the render time significantly. The rule is described below:
+	Using Cramer's rule instead of \texttt{glm::inverse} to invert matrices sped up the render time significantly. The rule is described below$^{[1]}$:
 	\[
 		A = 
 		\begin{bmatrix} 
@@ -213,7 +213,18 @@
 	\par
 	As expected, the more rays per pixel, the slower the render time gets. After experimenting with different values, 9 ray per pixel seemed to give the best results in terms of gain vs. time efficiency.
 	\subsection*{Depth of field and Robert's Operator for edge detection}
-	The next extension implemented is depth of field. A global variable \texttt{focus} was created. For each pixel in the 2D scene, the 3D depth of its respective intersection was preserved in the 2D array \texttt{float intersections[SCREEN\_WIDTH][SCREEN\_HEIGHT]}. Once the whole image is rendered, the intersection different from \texttt{focus$\pm$slack} are blurred. In the submitted version \texttt{$focus = 0.004f$ and $slack = 0.001f$}. The blurring is achieved via a $5\times 5$ Gaussian filter. If the camera is moved, the pixel in focus change respectively.
+	The next extension implemented is depth of field. A global variable \texttt{focus} was created. For each pixel in the 2D scene, the 3D depth of its respective intersection was preserved in the 2D array \texttt{float intersections[SCREEN\_WIDTH][SCREEN\_HEIGHT]}. Once the whole image is rendered, the intersection different from \texttt{focus$\pm$slack} are blurred. In the submitted version \texttt{$focus = 0.004f$ and $slack = 0.001f$}. The blurring is achieved via a $5\times 5$ Gaussian filter.
+	\[
+		kernel = \dfrac{1}{273}
+		\begin{bmatrix} 
+		1 &  4 &  7 &  4 & 1 \\
+		4 & 16 & 26 & 16 & 4 \\
+		7 & 26 & 41 & 26 & 7 \\
+		4 & 16 & 26 & 16 & 4 \\
+		1 &  4 &  7 &  4 & 1 \\
+		\end{bmatrix}^{[2]}
+	\]
+	If the camera is moved, the pixel in focus change respectively. An improvement would be blurring with a dynamic filter based on the distance from the \texttt{$focus$}.
 	\par
 	As the objects in the scene lack texture, the effect is not always easily noticeable. To ensure it is functioning, Robert's Operator for edge detection was implemented. The resulting image is produced side by side with the original and also responds to camera movements. The scene is first represented in grayscale. The Operator is then applied as follows: $\nabla f = |f(x,y) - f(x+1,y+1)| + |f(x,y+1) - f(x+1,y)| $, which is derived from:
 	\[
@@ -229,6 +240,8 @@
 		-1 & 0 
 		\end{bmatrix}
 	\]
+	The implementation is done using the \texttt{GetPixelSDL()} method -- a reversed of \texttt{PutPixelSDL()} method. It resides in the \texttt{SDLauxiliary.h} header.
+	
 	
 	\subsection*{Multiple light sources}
 	The final touch was adding multiple light sources - of different colours and positions. The structure used is: \texttt{struct Light \{vec3 pos; vec3 colour;\};} the main light following it is now named \texttt{ceilingLight}. The new lights are placed on the side walls and simulate fairy lights. While a simple alteration, it is interesting to observe the colour bleeding on the neighbouring surfaces. Additionally, the illumination computation was changed so that direct light is received from all light sources -- hence multiple shadows are produced.
@@ -246,5 +259,9 @@
 	%----------------------------------------------------------------------------------------
 
 	\section*{References}
-	1. http://www.math.cornell.edu/~andreim/Lec17.pdf
+	\begin{enumerate}
+		\item \url{http://www.math.cornell.edu/~andreim/Lec17.pdf}
+		\item \url{http://homepages.inf.ed.ac.uk/rbf/HIPR2/gsmooth.htm}
+	\end{enumerate}
+ 
 \end{document}

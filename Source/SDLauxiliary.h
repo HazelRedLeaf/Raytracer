@@ -81,9 +81,6 @@ void PutPixelSDL( SDL_Surface* surface, int x, int y, glm::vec3 color )
 
 glm::vec3 GetPixelSDL( SDL_Surface* surface, int x, int y)
 {
-	// if( x < 0 || surface->w <= x || y < 0 || surface->h <= y )
-	// 	return;
-
 	Uint8 r,g,b;
 	Uint32* p = (Uint32*)surface->pixels + y*surface->pitch/4 + x;
 	SDL_GetRGB( *p, surface->format, &r, &g, &b );

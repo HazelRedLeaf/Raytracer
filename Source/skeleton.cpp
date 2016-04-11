@@ -123,11 +123,11 @@ void Update() {
     if(keystate[SDLK_DOWN])
         cameraPos.z -= cameraSpeed*dt; 
     if(keystate[SDLK_LEFT]) {
-        cameraPos.x -= cameraSpeed*dt;
+        //cameraPos.x -= cameraSpeed*dt;
         updateCameraAngle(-M_PI/18.f);
     } 
     if(keystate[SDLK_RIGHT]) {
-        cameraPos.x += cameraSpeed*dt;
+        //cameraPos.x += cameraSpeed*dt;
         updateCameraAngle(M_PI/18.f);
     } 
     //Move light source

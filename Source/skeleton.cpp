@@ -4,12 +4,6 @@
 #include <X11/Xlib.h> 
 #include "SDLauxiliary.h"
 #include "TestModel.h"
-// header inclusion for linux lab machines
-#include "/usr/include/opencv2/objdetect/objdetect.hpp"
-#include "/usr/include/opencv2/opencv.hpp"
-#include "/usr/include/opencv2/core/core.hpp"
-#include "/usr/include/opencv2/highgui/highgui.hpp"
-#include "/usr/include/opencv2/imgproc/imgproc.hpp"
 
 using namespace std;
 using glm::vec3;
@@ -44,7 +38,7 @@ vec3 cameraPos(0.35f,0.f,-2.f);
 float yaw = -M_PI/18.f;
 mat3 R;
 float cameraSpeed = 0.2f;
-float focus = 0.004f;
+float focus = 0.005f;
 
 //light variables
 vector<Light> lights;
@@ -83,15 +77,15 @@ int main(int argc, char* argv[]) {
 
     Light fairyLight1;
     fairyLight1.pos = vec3(0.8, -0.6, 0.65);
-    fairyLight1.colour = 3.f * vec3(1,0.3,0.3);
+    fairyLight1.colour = 3.f * vec3(1,0.3,0.7);
 
     Light fairyLight2;
-    fairyLight2.pos = vec3(-0.8, 0.3, 0.65);
-    fairyLight2.colour = 3.f * vec3(1,0.3,0.3);
+    fairyLight2.pos = vec3(-0.8, -0.7, 0.65);
+    fairyLight2.colour = 3.f * vec3(0.3,1,0);
 
     Light fairyLight3;
-    fairyLight3.pos = vec3(0.8, 0, -0.3);
-    fairyLight3.colour = 3.f * vec3(1,0.3,0.3);
+    fairyLight3.pos = vec3(0.8, 0.5, -0.3);
+    fairyLight3.colour = 3.f * vec3(1,0.3,0.7);
 
     Light fairyLight4;
     fairyLight4.pos = vec3(0.8, -0.3, -0.8);
@@ -124,12 +118,10 @@ void Update() {
 
     Uint8* keystate = SDL_GetKeyState(0);
     //Move camera
-    if(keystate[SDLK_UP]) {
+    if(keystate[SDLK_UP])
         cameraPos.z += cameraSpeed;
-    } 
-    if(keystate[SDLK_DOWN]) {
-        cameraPos.z -= cameraSpeed;
-    } 
+    if(keystate[SDLK_DOWN])
+        cameraPos.z -= cameraSpeed; 
     if(keystate[SDLK_LEFT]) {
         cameraPos.x -= cameraSpeed;
         updateCameraAngle(-M_PI/18.f);
@@ -139,42 +131,18 @@ void Update() {
         updateCameraAngle(M_PI/18.f);
     } 
     //Move light source
-    if(keystate[SDLK_w]) {
+    if(keystate[SDLK_w])
         lights[0].pos.z += lightSpeed;
-        cout << "Pos ( " << lights[1].pos.x 
-             << " , " << lights[1].pos.y 
-             << " , " << lights[1].pos.z << " ) \n";
-    }
-    if(keystate[SDLK_s]){
+    if(keystate[SDLK_s])
         lights[0].pos.z -= lightSpeed;
-        cout << "Pos ( " << lights[1].pos.x 
-             << " , " << lights[1].pos.y 
-             << " , " << lights[1].pos.z << " ) \n";
-    }
-    if(keystate[SDLK_d]){
+    if(keystate[SDLK_d])
         lights[0].pos.x -= lightSpeed;
-        cout << "Pos ( " << lights[1].pos.x 
-             << " , " << lights[1].pos.y 
-             << " , " << lights[1].pos.z << " ) \n";
-    }
-    if(keystate[SDLK_a]){
+    if(keystate[SDLK_a])
         lights[0].pos.x += lightSpeed;
-        cout << "Pos ( " << lights[1].pos.x 
-             << " , " << lights[1].pos.y 
-             << " , " << lights[1].pos.z << " ) \n";
-    }
-    if(keystate[SDLK_q]){
+    if(keystate[SDLK_q])
         lights[0].pos.y += lightSpeed;
-        cout << "Pos ( " << lights[1].pos.x 
-             << " , " << lights[1].pos.y 
-             << " , " << lights[1].pos.z << " ) \n";
-    }
-    if(keystate[SDLK_e]){
+    if(keystate[SDLK_e])
         lights[0].pos.y -= lightSpeed;
-        cout << "Pos ( " << lights[1].pos.x 
-             << " , " << lights[1].pos.y 
-             << " , " << lights[1].pos.z << " ) \n";
-    }
 }
 
 
@@ -203,8 +171,6 @@ void Draw() {
         for(int x = 0; x < SCREEN_WIDTH; ++x) {
             vec3 averageColor(0.0, 0.0, 0.0);
             vec3 averageSectionColor(0.0, 0.0, 0.0); 
-
-            
 
             // shoot 9 rays instead of just 1
             for (int i = 0; i < 3; i++) {
@@ -244,10 +210,10 @@ void Draw() {
         }
     }
 
-    //cout << max_element(intersections[0][0], intersections[SCREEN_WIDTH][SCREEN_HEIGHT]) << endl;
     #pragma omp parallel for
     for(int y = 0; y < SCREEN_HEIGHT; ++y) {
         for(int x = 0; x < SCREEN_WIDTH; ++x) {
+            // pixel is in focus, no need to blur out
             if (intersections[x][y] > focus - 0.001f && intersections[x][y] < focus + 0.001f)
                 continue;
 
@@ -306,9 +272,7 @@ void Draw() {
         }
     }
 
-    // edge detection with convolution
-    // should be blurring with convolution instead
-    //#pragma omp parallel for
+    // edge detection on the grayscale image
     for(int y = 1; y < SCREEN_HEIGHT - 1; ++y) {
         for(int x = 1; x < SCREEN_WIDTH - 1; ++x) {
             float magnitude = abs(GetPixelSDL(screen, x+SCREEN_WIDTH    , y    ).x 

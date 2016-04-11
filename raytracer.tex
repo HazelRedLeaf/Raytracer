@@ -231,7 +231,15 @@
 	\]
 	
 	\subsection*{Multiple light sources}
-	The final touch was adding multiple light sources - of different colours and positions. The structure used is: \texttt{struct Light \{vec3 pos; vec3 colour;\};} the main light following it is now named \texttt{ceilingLight}. The new lights are placed on the side walls and simulate fairy lights. While a simple alteration, it is interesting to observe how the lights' colours alter the walls they are positioned on.
+	The final touch was adding multiple light sources - of different colours and positions. The structure used is: \texttt{struct Light \{vec3 pos; vec3 colour;\};} the main light following it is now named \texttt{ceilingLight}. The new lights are placed on the side walls and simulate fairy lights. While a simple alteration, it is interesting to observe the colour bleeding on the neighbouring surfaces. Additionally, the illumination computation was changed so that direct light is received from all light sources -- hence multiple shadows are produced.
+	\begin{figure}[!htp]
+		\begin{minipage}{.95\linewidth}
+			\includegraphics[width=\linewidth]{raytracer_final.jpg}
+			\captionsetup{belowskip=4pt,aboveskip=-11pt}
+			\caption{Raytracer}
+			\label{graph}
+		\end{minipage}
+	\end{figure}
 	
 	%----------------------------------------------------------------------------------------
 	%	REFERENCES
